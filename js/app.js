@@ -5,7 +5,7 @@ import {
   getTestByType, getReadingLiteracy, getPISAItems, getOlympiad
 } from './data/questions.js';
 import {
-  ensureSeed, register, login, logout, currentUser, getAllStudents
+  ensureSeed, register, login, logout, currentUser, getAllStudents, classOptions
 } from './auth.js';
 import {
   loadProgress, recordAnswer, clearError, saveTestResult,
@@ -163,7 +163,11 @@ function viewWelcome() {
         <button class="btn btn-primary" data-nav="login">Кіру</button>
         <button class="btn btn-gold" data-nav="register">Тіркелу</button>
       </div>
-      <p class="form-hint">Демо: student140 / 140qazaq · teacher140 / 140teacher</p>
+      <div class="seed-box">
+        <strong>Бастапқы аккаунттар</strong><br>
+        Оқушы: <code>student140</code> / <code>140qazaq</code><br>
+        Мұғалім: <code>teacher140</code> / <code>140teacher</code>
+      </div>
     </div>
     <div class="grid grid-3">
       <div class="card"><h3>📚 Сабақтар</h3><p class="muted">5–9 сыныптың барлық тақырыптары</p></div>
@@ -190,7 +194,7 @@ function viewRegister() {
       <h2>Тіркелу</h2>
       <div class="form-group"><label>Аты-жөні</label><input id="reg-name"></div>
       <div class="form-group"><label>Сыныбы</label>
-        <select id="reg-grade">${[5,6,7,8,9].map(g => `<option value="${g}">${g}-сынып</option>`).join('')}</select>
+        <select id="reg-class">${classOptions().map(o => `<option value="${o.label}" data-grade="${o.grade}" data-parallel="${o.parallel}">${o.label}</option>`).join('')}</select>
       </div>
       <div class="form-group"><label>Логин</label><input id="reg-login"></div>
       <div class="form-group"><label>Құпия сөз</label><input id="reg-pass" type="password"></div>
@@ -210,13 +214,13 @@ function viewCabinet() {
   const needDiag = !p.diagnosticDone;
 
   const menu = [
-    { nav: 'lessons', icon: '📘', label: 'Менің сабақтарым' },
-    { nav: 'tasks', icon: '✏️', label: 'Тақырыптық тапсырмалар' },
-    { nav: 'tests', icon: '📝', label: 'Тесттер' },
+    { nav: 'lessons', icon: '📚', label: 'Менің сабақтарым' },
+    { nav: 'tasks', icon: '📝', label: 'Тақырыптық тапсырмалар' },
+    { nav: 'tests', icon: '🧠', label: 'Тесттер' },
     { nav: 'reading', icon: '📖', label: 'Оқу сауаттылығы' },
     { nav: 'pisa', icon: '🌍', label: 'PISA' },
-    { nav: 'olympiad', icon: '🏅', label: 'Олимпиада' },
-    { nav: 'errors', icon: '🔧', label: 'Қателермен жұмыс' },
+    { nav: 'olympiad', icon: '🏆', label: 'Олимпиада' },
+    { nav: 'errors', icon: '❌', label: 'Қателермен жұмыс' },
     { nav: 'results', icon: '📊', label: 'Менің нәтижелерім' },
     { nav: 'achievements', icon: '⭐', label: 'Жетістіктерім' }
   ];
@@ -234,7 +238,7 @@ function viewCabinet() {
   return `
     <div class="card">
       <h2>Сәлем, ${u.name}!</h2>
-      <p class="muted">${u.grade}-сынып · Қиындық деңгейі: <strong>${diffLabel(p.difficulty)}</strong></p>
+      <p class="muted">${u.classLabel || (u.grade + '-сынып')} · Қиындық деңгейі: <strong>${diffLabel(p.difficulty)}</strong></p>
       <div class="stat-cards mt">
         <div class="stat-card"><div class="num">${p.xp}</div><div class="lbl">XP</div></div>
         <div class="stat-card"><div class="num">${p.correctTotal}</div><div class="lbl">Дұрыс</div></div>
@@ -259,7 +263,7 @@ function viewLessons() {
   const u = state.user;
   const grouped = getTopicsGrouped(u.grade);
   const p = loadProgress(u.id);
-  let html = `<div class="card flex-between"><h2>Менің сабақтарым · ${u.grade}-сынып</h2>
+  let html = `<div class="card flex-between"><h2>Менің сабақтарым · ${u.classLabel || (u.grade + '-сынып')}</h2>
     <button class="btn btn-outline btn-sm" data-nav="cabinet">← Кабинет</button></div>`;
   for (const [sec, list] of Object.entries(grouped)) {
     html += `<div class="card topic-section"><h3>${SECTIONS[sec] || sec}</h3><ul class="topic-list">`;
@@ -372,14 +376,19 @@ function viewPisa() {
 }
 
 function viewOlympiad() {
-  const levels = ['Жеңіл','Орташа','Күрделі','Олимпиадалық'];
+  const levels = [
+    { id: 'Жеңіл', icon: '🟢', label: 'Жеңіл' },
+    { id: 'Орташа', icon: '🟡', label: 'Орташа' },
+    { id: 'Күрделі', icon: '🔴', label: 'Күрделі' },
+    { id: 'Олимпиадалық', icon: '🏆', label: 'Олимпиадалық' }
+  ];
   return `
     <div class="card flex-between"><h2>Олимпиада</h2>
       <button class="btn btn-outline btn-sm" data-nav="cabinet">←</button></div>
     <div class="card">
       <p class="mb">Логика, грамматика, терең талдау, қате табу, тыныс белгілері.</p>
       <div class="menu-grid">
-        ${levels.map(l => `<button class="menu-btn" data-olymp="${l}"><span class="icon">🏅</span><span class="label">${l}</span></button>`).join('')}
+        ${levels.map(l => `<button class="menu-btn" data-olymp="${l.id}"><span class="icon">${l.icon}</span><span class="label">${l.label}</span></button>`).join('')}
       </div>
     </div>`;
 }
@@ -437,14 +446,14 @@ function viewResults() {
     ${charts}
     <div class="card"><h3>Соңғы тесттер</h3>
       ${!(p.results||[]).length ? '<p class="muted">Әлі тест жоқ.</p>' :
-        `<table class="data"><thead><tr><th>Түрі</th><th>Балл</th><th>%</th><th>Уақыт</th></tr></thead><tbody>
+        `<div class="table-wrap"><table class="data"><thead><tr><th>Түрі</th><th>Балл</th><th>%</th><th>Уақыт</th></tr></thead><tbody>
         ${p.results.slice(0,15).map(r => `<tr>
           <td>${r.title || r.category || ''}</td>
           <td>${r.score}/${r.total}</td>
           <td>${r.percent}%</td>
           <td>${r.timeSec || 0} с</td>
         </tr>`).join('')}
-        </tbody></table>`}
+        </tbody></table></div>`}
     </div>
     ${weak.length ? `<div class="card"><h3>Әлсіз тақырыптар</h3>
       <p>${getRecommendations(state.user.id, topics)}</p>
@@ -503,17 +512,17 @@ function viewTeacher() {
     </div>
     <div class="card">
       <h3>Оқушылар</h3>
-      <table class="data"><thead><tr><th>Аты</th><th>Сынып</th><th>XP</th><th>Дұрыс</th><th>Қате</th><th>Жетістік</th></tr></thead>
+      <div class="table-wrap"><table class="data"><thead><tr><th>Аты</th><th>Сынып</th><th>XP</th><th>Дұрыс</th><th>Қате</th><th>Жетістік</th></tr></thead>
       <tbody>
         ${data.students.map(r => `<tr>
           <td>${escapeHtml(r.student.name)}</td>
-          <td>${r.student.grade}</td>
+          <td>${r.student.classLabel || r.student.grade}</td>
           <td>${r.progress.xp}</td>
           <td>${r.progress.correctTotal}</td>
           <td>${r.progress.wrongTotal}</td>
           <td>${r.progress.achievements.length}</td>
         </tr>`).join('') || '<tr><td colspan="6">Оқушы жоқ</td></tr>'}
-      </tbody></table>
+      </tbody></table></div>
     </div>
     <div class="grid grid-2">
       <div class="card"><h3>Әлсіз тақырыптар</h3>
@@ -549,9 +558,13 @@ function bindLogin() {
 
 function bindRegister() {
   document.getElementById('reg-btn').onclick = () => {
+    const sel = document.getElementById('reg-class');
+    const opt = sel.options[sel.selectedIndex];
     const r = register({
       name: document.getElementById('reg-name').value,
-      grade: document.getElementById('reg-grade').value,
+      grade: opt.dataset.grade || sel.value.split('-')[0],
+      parallel: opt.dataset.parallel || sel.value.split('-')[1] || 'А',
+      classLabel: sel.value,
       login: document.getElementById('reg-login').value,
       password: document.getElementById('reg-pass').value
     });

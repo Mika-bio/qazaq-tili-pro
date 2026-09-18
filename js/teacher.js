@@ -42,10 +42,15 @@ export function getDashboardData() {
   return { students: rows, byGrade, frequentErrors, weakTopics };
 }
 
-export function assignTask({ grade, topicId, topicTitle, count, timeLimit }) {
-  const students = getAllStudents().filter(s => s.grade === Number(grade));
+export function assignTask({ grade, topicId, topicTitle, count, timeLimit, classLabel }) {
+  let students = getAllStudents().filter(s => s.grade === Number(grade));
+  if (classLabel) {
+    const filtered = students.filter(s => s.classLabel === classLabel);
+    if (filtered.length) students = filtered;
+  }
   const assignment = {
     grade: Number(grade),
+    classLabel: classLabel || null,
     topicId,
     topicTitle,
     count: Number(count) || 10,
