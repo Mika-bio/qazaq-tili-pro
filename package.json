@@ -1,0 +1,21 @@
+{
+  "name": "qazaq-tili-pro",
+  "version": "2.0.0",
+  "description": "ҚАЗАҚ ТІЛІ PRO — Абылай хан атындағы №140 қазақ орта мектебі",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node server/seed.js",
+    "postinstall": "node server/seed.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "sql.js": "^1.12.0"
+  }
+}
