@@ -163,11 +163,7 @@ function viewWelcome() {
         <button class="btn btn-primary" data-nav="login">Кіру</button>
         <button class="btn btn-gold" data-nav="register">Тіркелу</button>
       </div>
-      <div class="seed-box">
-        <strong>Бастапқы аккаунттар</strong><br>
-        Оқушы: <code>student140</code> / <code>140qazaq</code><br>
-        Мұғалім: <code>teacher140</code> / <code>140teacher</code>
-      </div>
+      <p class="form-hint mt" style="text-align:center">Өзіңіздің логин мен құпия сөзіңізбен тіркеліңіз. Басқа адам сіздің пароліңізсіз кіре алмайды.</p>
     </div>
     <div class="grid grid-3">
       <div class="card"><h3>📚 Сабақтар</h3><p class="muted">5–9 сыныптың барлық тақырыптары</p></div>
@@ -180,7 +176,8 @@ function viewLogin() {
   return `
     <div class="auth-wrap card">
       <h2>Кіру</h2>
-      <div class="form-group"><label>Логин</label><input id="login-name" autocomplete="username"></div>
+      <p class="form-hint mb">Логин мен құпия сөзді өзіңіз ойлап жазыңыз және ұмытпаңыз. Басқа адам сіздің пароліңізсіз кіре алмайды.</p>
+      <div class="form-group"><label>Логин</label><input id="login-name" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
       <div class="form-group"><label>Құпия сөз</label><input id="login-pass" type="password" autocomplete="current-password"></div>
       <div class="form-error hidden" id="login-err"></div>
       <button class="btn btn-primary btn-block" id="login-btn">Кіру</button>
@@ -192,12 +189,14 @@ function viewRegister() {
   return `
     <div class="auth-wrap card">
       <h2>Тіркелу</h2>
-      <div class="form-group"><label>Аты-жөні</label><input id="reg-name"></div>
+      <p class="form-hint mb">Логин мен құпия сөзді өзіңіз ойлап жазыңыз және ұмытпаңыз. Басқа адам сіздің пароліңізсіз кіре алмайды.</p>
+      <div class="form-group"><label>Аты-жөні</label><input id="reg-name" autocomplete="name"></div>
       <div class="form-group"><label>Сыныбы</label>
         <select id="reg-class">${classOptions().map(o => `<option value="${o.label}" data-grade="${o.grade}" data-parallel="${o.parallel}">${o.label}</option>`).join('')}</select>
       </div>
-      <div class="form-group"><label>Логин</label><input id="reg-login"></div>
-      <div class="form-group"><label>Құпия сөз</label><input id="reg-pass" type="password"></div>
+      <div class="form-group"><label>Логин</label><input id="reg-login" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="бос орынсыз"></div>
+      <div class="form-group"><label>Құпия сөз</label><input id="reg-pass" type="password" autocomplete="new-password" minlength="6" placeholder="кемінде 6 таңба"></div>
+      <div class="form-group"><label>Құпия сөзді қайталаңыз</label><input id="reg-pass2" type="password" autocomplete="new-password" minlength="6"></div>
       <div class="form-error hidden" id="reg-err"></div>
       <button class="btn btn-primary btn-block" id="reg-btn">Тіркелу</button>
       <p class="form-hint">Аккаунтыңыз бар ма? <a href="#/login">Кіру</a></p>
@@ -208,6 +207,11 @@ function viewCabinet() {
   const u = state.user;
   if (u.role === 'teacher') { location.hash = '#/teacher'; return ''; }
   const p = loadProgress(u.id);
+  // Алғашқы кіруде диагностика міндетті
+  if (!p.diagnosticDone && state.view === 'cabinet') {
+    location.hash = '#/diagnostic';
+    return '';
+  }
   const topics = getTopicsByGrade(u.grade);
   const weak = getWeakTopics(u.id, topics);
   const rec = getRecommendations(u.id, topics);
@@ -534,6 +538,10 @@ function viewTeacher() {
     </div>
     <div class="card">
       <h3>Тапсырма беру</h3>
+      <div class="form-group"><label>Сынып (барлығы немесе нақты)</label>
+        <select id="asg-class"><option value="">Сыныптың барлық оқушылары</option>
+        ${classOptions().map(o => `<option value="${o.label}">${o.label}</option>`).join('')}</select>
+      </div>
       <div class="form-group"><label>Тақырып</label><select id="asg-topic">${topicsOpts}</select></div>
       <div class="form-group"><label>Саны</label><input id="asg-count" type="number" value="10" min="5" max="30"></div>
       <div class="form-group"><label>Уақыт шегі (мин)</label><input id="asg-time" type="number" value="15" min="5" max="60"></div>
@@ -548,30 +556,53 @@ function viewPlay() {
 
 /* ——— Bindings ——— */
 function bindLogin() {
-  document.getElementById('login-btn').onclick = () => {
-    const r = login(document.getElementById('login-name').value, document.getElementById('login-pass').value);
+  document.getElementById('login-btn').onclick = async () => {
+    const btn = document.getElementById('login-btn');
     const err = document.getElementById('login-err');
-    if (!r.ok) { err.textContent = r.error; err.classList.remove('hidden'); return; }
-    location.hash = r.user.role === 'teacher' ? '#/teacher' : '#/cabinet';
+    btn.disabled = true;
+    try {
+      const r = await login(document.getElementById('login-name').value, document.getElementById('login-pass').value);
+      if (!r.ok) { err.textContent = r.error; err.classList.remove('hidden'); return; }
+      location.hash = r.user.role === 'teacher' ? '#/teacher' : '#/cabinet';
+    } catch (e) {
+      err.textContent = 'Кіру кезінде қате шықты. Қайта көріңіз.';
+      err.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+    }
   };
 }
 
 function bindRegister() {
-  document.getElementById('reg-btn').onclick = () => {
+  document.getElementById('reg-btn').onclick = async () => {
+    const btn = document.getElementById('reg-btn');
+    const err = document.getElementById('reg-err');
     const sel = document.getElementById('reg-class');
     const opt = sel.options[sel.selectedIndex];
-    const r = register({
-      name: document.getElementById('reg-name').value,
-      grade: opt.dataset.grade || sel.value.split('-')[0],
-      parallel: opt.dataset.parallel || sel.value.split('-')[1] || 'А',
-      classLabel: sel.value,
-      login: document.getElementById('reg-login').value,
-      password: document.getElementById('reg-pass').value
-    });
-    const err = document.getElementById('reg-err');
-    if (!r.ok) { err.textContent = r.error; err.classList.remove('hidden'); return; }
-    login(document.getElementById('reg-login').value, document.getElementById('reg-pass').value);
-    location.hash = '#/diagnostic';
+    const pass = document.getElementById('reg-pass').value;
+    const pass2 = document.getElementById('reg-pass2').value;
+    btn.disabled = true;
+    try {
+      const r = await register({
+        name: document.getElementById('reg-name').value,
+        grade: opt.dataset.grade || sel.value.split('-')[0],
+        parallel: opt.dataset.parallel || sel.value.split('-')[1] || 'А',
+        classLabel: sel.value,
+        login: document.getElementById('reg-login').value,
+        password: pass,
+        passwordConfirm: pass2
+      });
+      if (!r.ok) { err.textContent = r.error; err.classList.remove('hidden'); return; }
+      // Auto-login into THIS user's session only
+      const lr = await login(document.getElementById('reg-login').value, pass);
+      if (!lr.ok) { err.textContent = lr.error; err.classList.remove('hidden'); return; }
+      location.hash = '#/diagnostic';
+    } catch (e) {
+      err.textContent = 'Тіркелу кезінде қате шықты. Қайта көріңіз.';
+      err.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+    }
   };
 }
 
@@ -746,12 +777,14 @@ function bindTeacher() {
   if (!btn) return;
   btn.onclick = () => {
     const raw = document.getElementById('asg-topic').value.split('|');
+    const classLabel = document.getElementById('asg-class').value || null;
     const r = assignTask({
       grade: raw[0],
       topicId: raw[1],
       topicTitle: raw[2],
       count: document.getElementById('asg-count').value,
-      timeLimit: document.getElementById('asg-time').value
+      timeLimit: document.getElementById('asg-time').value,
+      classLabel
     });
     document.getElementById('asg-msg').textContent = `${r.count} оқушыға тапсырма жіберілді.`;
   };
